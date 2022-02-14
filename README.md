@@ -502,11 +502,11 @@ It indicates when to run, you can check [PlayerLoopList.md](https://gist.github.
 
 `yield return null` and `UniTask.Yield` are similar but different. `yield return null` always returns next frame but `UniTask.Yield` returns next called. That is, call `UniTask.Yield(PlayerLoopTiming.Update)` on `PreUpdate`, it returns same frame. `UniTask.NextFrame()` guarantees return next frame, you can expect this to behave exactly the same as `yield return null`.
 
-> UniTask.Yield(without CancellationToken) is a special type, returns `YieldAwaitable` and run on YieldRunner. It is most lightweight and fastest.
+> UniTask.Yield(without CancellationToken) is a special type, returns `YieldAwaitable` and runs on YieldRunner. It is the most lightweight and fastest.
 
 `AsyncOperation` is returned from native timing. For example, await `SceneManager.LoadSceneAsync` is returned from `EarlyUpdate.UpdatePreloading` and after being called, the loaded scene's `Start` is called from `EarlyUpdate.ScriptRunDelayedStartupFrame`. Also `await UnityWebRequest` is returned from `EarlyUpdate.ExecuteMainThreadJobs`.
 
-In UniTask, await directly uses native timing, `WithCancellation` and `ToUniTask` use specified timing. This is usually not a particular problem, but with `LoadSceneAsync`, it causes a different order of Start and continuation after await. So it is recommended not to use `LoadSceneAsync.ToUniTask`.
+In UniTask, await directly uses native timing, while `WithCancellation` and `ToUniTask` use specified timing. This is usually not a particular problem, but with `LoadSceneAsync`, it causes a different order of Start and continuation after await. So it is recommended not to use `LoadSceneAsync.ToUniTask`.
 
 In the stacktrace, you can check where it is running in playerloop.
 
@@ -805,32 +805,13 @@ async UniTask TripleClick(CancellationToken token)
 }
 ```
 
-All MonoBehaviour message events can convert async-streams by `AsyncTriggers` that can be enabled by `using Cysharp.Threading.Tasks.Triggers;`.
+All MonoBehaviour message events can convert async-streams by `AsyncTriggers` that can be enabled by `using Cysharp.Threading.Tasks.Triggers;`. AsyncTrigger can be created using `GetAsync***Trigger` and triggers itself as UniTaskAsyncEnumerable.
 
 ```csharp
-using Cysharp.Threading.Tasks.Triggers;
-
-async UniTaskVoid MonitorCollision()
-{
-    await gameObject.OnCollisionEnterAsync();
-    Debug.Log("Collision Enter");
-    /* do anything */
-
-    await gameObject.OnCollisionExitAsync();
-    Debug.Log("Collision Exit");
-}
-```
-
-Similar to uGUI event, AsyncTrigger can be created using `GetAsync***Trigger` and triggers itself as UniTaskAsyncEnumerable.
-
-```csharp
-// use await multiple times, get AsyncTriggerHandler is more efficient.
-using(var trigger = this.GetOnCollisionEnterAsyncHandler())
-{
-    await OnCollisionEnterAsync();
-    await OnCollisionEnterAsync();
-    await OnCollisionEnterAsync();
-}
+var trigger = this.GetOnCollisionEnterAsyncHandler();
+await trigger.OnCollisionEnterAsync();
+await trigger.OnCollisionEnterAsync();
+await trigger.OnCollisionEnterAsync();
 
 // every moves.
 await this.GetAsyncMoveTrigger().ForEachAsync(axisEventData =>
@@ -858,9 +839,9 @@ rp.WithoutCurrent().BindTo(this.textComponent);
 
 await rp.WaitAsync(); // wait until next value set
 
-// also exists ToReadOnlyReactiveProperty
+// also exists ToReadOnlyAsyncReactiveProperty
 var rp2 = new AsyncReactiveProperty<int>(99);
-var rorp = rp.CombineLatest(rp2, (x, y) => (x, y)).ToReadOnlyReactiveProperty();
+var rorp = rp.CombineLatest(rp2, (x, y) => (x, y)).ToReadOnlyAsyncReactiveProperty(CancellationToken.None);
 ```
 
 A pull-type asynchronous stream does not get the next values until the asynchronous processing in the sequence is complete. This could spill data from push-type events such as buttons.
